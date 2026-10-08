@@ -1,0 +1,51 @@
+name: Compilar PhaseDuck
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  macos:
+    name: macOS (VST3 + AU, universal)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Compilar
+        run: cmake --build build --config Release -j 4 --target PhaseDuck_VST3 PhaseDuck_AU PhaseDuck_Standalone
+
+      - name: Firmar (ad-hoc) y empaquetar
+        run: |
+          OUT=build/PhaseDuck_artefacts/Release
+          mkdir -p dist
+          for p in "$OUT/VST3/PhaseDuck.vst3" "$OUT/AU/PhaseDuck.component" "$OUT/Standalone/PhaseDuck.app"; do
+            codesign --force --deep --sign - "$p"
+            cp -R "$p" dist/
+          done
+          cp README.md dist/
+          cd dist && ditto -c -k --sequesterRsrc --keepParent . ../PhaseDuck-macOS.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PhaseDuck-macOS
+          path: PhaseDuck-macOS.zip
+
+  windows:
+    name: Windows (VST3)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar
+        run: cmake -B build
+
+      - name: Compilar
+        run: cmake --build build --config Release --target PhaseDuck_VST3
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PhaseDuck-Windows-VST3
+          path: build/PhaseDuck_artefacts/Release/VST3/PhaseDuck.vst3
